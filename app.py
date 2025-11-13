@@ -11,6 +11,7 @@ from email import encoders
 import json
 import pandas as pd
 import time
+import mimetypes
 
 # Configuración de la página
 st.set_page_config(page_title="Gmail API App", page_icon="📧")
@@ -40,7 +41,7 @@ def get_flow():
     )
     return flow
 
-# Función para enviar correo
+# Función para enviar correo MEJORADA
 def send_email(service, to, subject, body, attachments=None):
     try:
         # Crear mensaje
@@ -49,17 +50,24 @@ def send_email(service, to, subject, body, attachments=None):
         message['subject'] = subject
         
         # Agregar el cuerpo del mensaje
-        message.attach(MIMEText(body, 'plain'))
+        message.attach(MIMEText(body, 'plain', 'utf-8'))
         
         # Agregar archivos adjuntos si existen
         if attachments:
             for attachment in attachments:
-                # Determinar el tipo MIME basado en la extensión del archivo
                 filename = attachment['name']
                 content = attachment['content']
                 
-                # Crear la parte del adjunto
-                part = MIMEBase('application', 'octet-stream')
+                # Detectar el tipo MIME correcto
+                mime_type, _ = mimetypes.guess_type(filename)
+                if mime_type is None:
+                    mime_type = 'application/octet-stream'
+                
+                # Separar el tipo MIME principal y subtipo
+                maintype, subtype = mime_type.split('/', 1)
+                
+                # Crear la parte del adjunto con el tipo MIME correcto
+                part = MIMEBase(maintype, subtype)
                 part.set_payload(content)
                 encoders.encode_base64(part)
                 
@@ -242,14 +250,15 @@ else:
                             attachments = []
                             if uploaded_attachments:
                                 for att in uploaded_attachments:
-                                    # Leer el contenido del archivo
-                                    att.seek(0)  # Asegurar que estamos al inicio del archivo
-                                    file_content = att.read()
+                                    # Leer el contenido del archivo UNA SOLA VEZ
+                                    att.seek(0)  # Ir al inicio del archivo
+                                    file_content = att.read()  # Leer todo el contenido
+                                    
                                     attachments.append({
                                         'name': att.name,
-                                        'content': file_content
+                                        'content': file_content  # Ya es bytes, no necesita más procesamiento
                                     })
-                                    st.write(f"📎 Preparado: {att.name}")
+                                    st.write(f"📎 Preparado: {att.name} ({len(file_content)} bytes)")
                             
                             progress_bar = st.progress(0)
                             status_text = st.empty()
@@ -280,7 +289,14 @@ else:
                                 
                                 status_text.text(f"Enviando a {nombre} ({email})...")
                                 
-                                success, msg = send_email(service, email, asunto_personalizado, mensaje_personalizado, attachments if attachments else None)
+                                # Pasar los adjuntos preparados (no leer de nuevo)
+                                success, msg = send_email(
+                                    service, 
+                                    email, 
+                                    asunto_personalizado, 
+                                    mensaje_personalizado, 
+                                    attachments if attachments else None
+                                )
                                 
                                 if success:
                                     enviados += 1
