@@ -54,10 +54,20 @@ def send_email(service, to, subject, body, attachments=None):
         # Agregar archivos adjuntos si existen
         if attachments:
             for attachment in attachments:
+                # Determinar el tipo MIME basado en la extensión del archivo
+                filename = attachment['name']
+                content = attachment['content']
+                
+                # Crear la parte del adjunto
                 part = MIMEBase('application', 'octet-stream')
-                part.set_payload(attachment['content'])
+                part.set_payload(content)
                 encoders.encode_base64(part)
-                part.add_header('Content-Disposition', f'attachment; filename={attachment["name"]}')
+                
+                # Agregar header con el nombre del archivo
+                part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename="{filename}"'
+                )
                 message.attach(part)
         
         # Codificar el mensaje
