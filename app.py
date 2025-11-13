@@ -238,14 +238,18 @@ else:
                         if not subject_template.strip() or not message_template.strip():
                             st.error("Por favor completa el asunto y mensaje")
                         else:
-                            # Preparar archivos adjuntos
+                            # Preparar archivos adjuntos UNA SOLA VEZ antes del loop
                             attachments = []
                             if uploaded_attachments:
                                 for att in uploaded_attachments:
+                                    # Leer el contenido del archivo
+                                    att.seek(0)  # Asegurar que estamos al inicio del archivo
+                                    file_content = att.read()
                                     attachments.append({
                                         'name': att.name,
-                                        'content': att.read()
+                                        'content': file_content
                                     })
+                                    st.write(f"📎 Preparado: {att.name}")
                             
                             progress_bar = st.progress(0)
                             status_text = st.empty()
