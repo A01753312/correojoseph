@@ -153,14 +153,14 @@ else:
     
     with tab2:
         st.header("📊 Enviar correos masivos desde Excel")
-        st.write("Sube un archivo Excel con las columnas: `email`, `asunto`, y `mensaje`")
+        st.write("Sube un archivo Excel con las columnas: `Nombre`, `Celular`, y `email`")
         
         # Mostrar ejemplo
         with st.expander("📝 Ver formato de ejemplo"):
             ejemplo_df = pd.DataFrame({
-                'email': ['ejemplo1@gmail.com', 'ejemplo2@gmail.com'],
-                'asunto': ['Asunto 1', 'Asunto 2'],
-                'mensaje': ['Mensaje para el primer contacto', 'Mensaje para el segundo contacto']
+                'Nombre': ['Juan Pérez', 'María García'],
+                'Celular': ['5551234567', '5559876543'],
+                'email': ['juan@example.com', 'maria@example.com']
             })
             st.dataframe(ejemplo_df)
             st.info("Tu archivo Excel debe tener estas tres columnas exactamente.")
@@ -174,49 +174,110 @@ else:
                 df = pd.read_excel(uploaded_file)
                 
                 # Verificar que tenga las columnas necesarias
-                required_columns = ['email', 'asunto', 'mensaje']
+                required_columns = ['Nombre', 'Celular', 'email']
                 if not all(col in df.columns for col in required_columns):
                     st.error(f"El archivo debe contener las columnas: {', '.join(required_columns)}")
                 else:
-                    st.success(f"✅ Archivo cargado correctamente: {len(df)} correos encontrados")
+                    st.success(f"✅ Archivo cargado correctamente: {len(df)} contactos encontrados")
                     
                     # Mostrar vista previa
-                    st.write("Vista previa de los correos:")
+                    st.write("Vista previa de los contactos:")
                     st.dataframe(df)
+                    
+                    st.divider()
+                    
+                    # Plantilla de asunto
+                    st.subheader("📝 Plantilla de asunto")
+                    st.write("Usa `{Nombre}`, `{Celular}`, o `{email}` para personalizar")
+                    subject_template = st.text_input(
+                        "Asunto del correo:", 
+                        placeholder="Ej: Hola {Nombre}, tenemos una oferta para ti",
+                        value="Hola {Nombre}"
+                    )
+                    
+                    # Plantilla de mensaje
+                    st.subheader("✉️ Plantilla de mensaje")
+                    st.write("Usa `{Nombre}`, `{Celular}`, o `{email}` para personalizar el mensaje")
+                    message_template = st.text_area(
+                        "Mensaje del correo:", 
+                        placeholder="Ej: Estimado/a {Nombre}, te contactamos al {Celular}...",
+                        value="Estimado/a {Nombre},\n\nGracias por tu interés.\n\nSaludos cordiales",
+                        height=200
+                    )
+                    
+                    # Vista previa del primer correo
+                    if len(df) > 0:
+                        st.subheader("👁️ Vista previa del primer correo")
+                        first_row = df.iloc[0]
+                        preview_subject = subject_template.format(
+                            Nombre=first_row['Nombre'],
+                            Celular=first_row['Celular'],
+                            email=first_row['email']
+                        )
+                        preview_message = message_template.format(
+                            Nombre=first_row['Nombre'],
+                            Celular=first_row['Celular'],
+                            email=first_row['email']
+                        )
+                        
+                        st.write(f"**Para:** {first_row['email']}")
+                        st.write(f"**Asunto:** {preview_subject}")
+                        st.text_area("**Mensaje:**", value=preview_message, height=150, disabled=True)
+                    
+                    st.divider()
                     
                     # Botón para enviar
                     if st.button("📤 Enviar todos los correos"):
-                        progress_bar = st.progress(0)
-                        status_text = st.empty()
-                        
-                        enviados = 0
-                        errores = 0
-                        
-                        for idx, row in df.iterrows():
-                            email = str(row['email']).strip()
-                            asunto = str(row['asunto']).strip()
-                            mensaje = str(row['mensaje']).strip()
+                        if not subject_template.strip() or not message_template.strip():
+                            st.error("Por favor completa el asunto y mensaje")
+                        else:
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
                             
-                            status_text.text(f"Enviando a {email}...")
+                            enviados = 0
+                            errores = 0
                             
-                            success, msg = send_email(service, email, asunto, mensaje)
+                            for idx, row in df.iterrows():
+                                nombre = str(row['Nombre']).strip()
+                                celular = str(row['Celular']).strip()
+                                email = str(row['email']).strip()
+                                
+                                # Personalizar asunto y mensaje
+                                try:
+                                    asunto_personalizado = subject_template.format(
+                                        Nombre=nombre,
+                                        Celular=celular,
+                                        email=email
+                                    )
+                                    mensaje_personalizado = message_template.format(
+                                        Nombre=nombre,
+                                        Celular=celular,
+                                        email=email
+                                    )
+                                except KeyError as e:
+                                    st.error(f"Error en la plantilla: {e}. Usa solo {{Nombre}}, {{Celular}}, o {{email}}")
+                                    break
+                                
+                                status_text.text(f"Enviando a {nombre} ({email})...")
+                                
+                                success, msg = send_email(service, email, asunto_personalizado, mensaje_personalizado)
+                                
+                                if success:
+                                    enviados += 1
+                                else:
+                                    errores += 1
+                                    st.warning(f"Error enviando a {email}: {msg}")
+                                
+                                # Actualizar barra de progreso
+                                progress_bar.progress((idx + 1) / len(df))
+                                
+                                # Pequeña pausa para no sobrecargar la API
+                                time.sleep(0.5)
                             
-                            if success:
-                                enviados += 1
-                            else:
-                                errores += 1
-                                st.warning(f"Error enviando a {email}: {msg}")
+                            status_text.empty()
+                            progress_bar.empty()
                             
-                            # Actualizar barra de progreso
-                            progress_bar.progress((idx + 1) / len(df))
-                            
-                            # Pequeña pausa para no sobrecargar la API
-                            time.sleep(0.5)
-                        
-                        status_text.empty()
-                        progress_bar.empty()
-                        
-                        st.success(f"✅ Proceso completado: {enviados} enviados, {errores} errores")
+                            st.success(f"✅ Proceso completado: {enviados} enviados, {errores} errores")
                         
             except Exception as e:
                 st.error(f"Error al procesar el archivo: {str(e)}")
