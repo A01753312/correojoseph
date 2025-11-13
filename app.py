@@ -6,6 +6,8 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from email.mime.text import MIMEText
 import json
+import pandas as pd
+import time
 
 # Configuración de la página
 st.set_page_config(page_title="Gmail API App", page_icon="📧")
@@ -130,7 +132,7 @@ else:
     service = build('gmail', 'v1', credentials=st.session_state.credentials)
     
     # Tabs para diferentes funcionalidades
-    tab1, tab2 = st.tabs(["📤 Enviar Email", "📬 Ver Emails"])
+    tab1, tab2, tab3 = st.tabs(["📤 Enviar Email", "📊 Enviar desde Excel", "📬 Ver Emails"])
     
     with tab1:
         st.header("Enviar un correo electrónico")
@@ -150,6 +152,76 @@ else:
                 st.warning("Por favor completa todos los campos")
     
     with tab2:
+        st.header("📊 Enviar correos masivos desde Excel")
+        st.write("Sube un archivo Excel con las columnas: `email`, `asunto`, y `mensaje`")
+        
+        # Mostrar ejemplo
+        with st.expander("📝 Ver formato de ejemplo"):
+            ejemplo_df = pd.DataFrame({
+                'email': ['ejemplo1@gmail.com', 'ejemplo2@gmail.com'],
+                'asunto': ['Asunto 1', 'Asunto 2'],
+                'mensaje': ['Mensaje para el primer contacto', 'Mensaje para el segundo contacto']
+            })
+            st.dataframe(ejemplo_df)
+            st.info("Tu archivo Excel debe tener estas tres columnas exactamente.")
+        
+        # Subir archivo
+        uploaded_file = st.file_uploader("Sube tu archivo Excel", type=['xlsx', 'xls'])
+        
+        if uploaded_file is not None:
+            try:
+                # Leer el archivo Excel
+                df = pd.read_excel(uploaded_file)
+                
+                # Verificar que tenga las columnas necesarias
+                required_columns = ['email', 'asunto', 'mensaje']
+                if not all(col in df.columns for col in required_columns):
+                    st.error(f"El archivo debe contener las columnas: {', '.join(required_columns)}")
+                else:
+                    st.success(f"✅ Archivo cargado correctamente: {len(df)} correos encontrados")
+                    
+                    # Mostrar vista previa
+                    st.write("Vista previa de los correos:")
+                    st.dataframe(df)
+                    
+                    # Botón para enviar
+                    if st.button("📤 Enviar todos los correos"):
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        enviados = 0
+                        errores = 0
+                        
+                        for idx, row in df.iterrows():
+                            email = str(row['email']).strip()
+                            asunto = str(row['asunto']).strip()
+                            mensaje = str(row['mensaje']).strip()
+                            
+                            status_text.text(f"Enviando a {email}...")
+                            
+                            success, msg = send_email(service, email, asunto, mensaje)
+                            
+                            if success:
+                                enviados += 1
+                            else:
+                                errores += 1
+                                st.warning(f"Error enviando a {email}: {msg}")
+                            
+                            # Actualizar barra de progreso
+                            progress_bar.progress((idx + 1) / len(df))
+                            
+                            # Pequeña pausa para no sobrecargar la API
+                            time.sleep(0.5)
+                        
+                        status_text.empty()
+                        progress_bar.empty()
+                        
+                        st.success(f"✅ Proceso completado: {enviados} enviados, {errores} errores")
+                        
+            except Exception as e:
+                st.error(f"Error al procesar el archivo: {str(e)}")
+    
+    with tab3:
         st.header("Tus últimos correos")
         
         num_messages = st.slider("Número de mensajes a mostrar:", 1, 20, 10)
@@ -188,6 +260,7 @@ with st.sidebar:
     st.header("ℹ️ Información")
     st.write("Esta aplicación te permite:")
     st.write("- 📤 Enviar correos electrónicos")
+    st.write("- 📊 Enviar correos masivos desde Excel")
     st.write("- 📬 Ver tus últimos emails")
     st.write("- 🔐 Autenticación segura con OAuth2")
     
