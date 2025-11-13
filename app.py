@@ -72,6 +72,22 @@ def list_messages(service, max_results=10):
 if 'credentials' not in st.session_state:
     st.session_state.credentials = None
 
+# Obtener código de la URL si Google redirige de vuelta
+query_params = st.query_params
+auth_code = query_params.get("code", None)
+
+# Si hay código en la URL, autenticar automáticamente
+if auth_code and st.session_state.credentials is None:
+    try:
+        flow = get_flow()
+        flow.fetch_token(code=auth_code)
+        st.session_state.credentials = flow.credentials
+        # Limpiar parámetros de la URL
+        st.query_params.clear()
+        st.rerun()
+    except Exception as e:
+        st.error(f"Error en la autenticación: {str(e)}")
+
 # Proceso de autenticación
 if st.session_state.credentials is None:
     st.header("🔐 Autenticación con Google")
