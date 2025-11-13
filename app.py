@@ -115,26 +115,9 @@ else:
     service = build('gmail', 'v1', credentials=st.session_state.credentials)
     
     # Tabs para diferentes funcionalidades
-    tab1, tab2, tab3 = st.tabs(["📤 Enviar Email", "📊 Enviar desde Excel", "📬 Ver Emails"])
+    tab1, tab2 = st.tabs(["📊 Enviar desde Excel", "📬 Ver Emails"])
     
     with tab1:
-        st.header("Enviar un correo electrónico")
-        
-        to_email = st.text_input("Para:", placeholder="ejemplo@gmail.com")
-        subject = st.text_input("Asunto:", placeholder="Asunto del correo")
-        body = st.text_area("Mensaje:", placeholder="Escribe tu mensaje aquí...", height=200)
-        
-        if st.button("Enviar Correo"):
-            if to_email and subject and body:
-                success, message = send_email(service, to_email, subject, body)
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
-            else:
-                st.warning("Por favor completa todos los campos")
-    
-    with tab2:
         st.header("📊 Enviar correos masivos desde Excel")
         st.write("Sube un archivo Excel con las columnas: `Nombre`, `Celular`, y `email`")
         
@@ -265,7 +248,7 @@ else:
             except Exception as e:
                 st.error(f"Error al procesar el archivo: {str(e)}")
     
-    with tab3:
+    with tab2:
         st.header("Tus últimos correos")
         
         num_messages = st.slider("Número de mensajes a mostrar:", 1, 20, 10)
@@ -303,7 +286,6 @@ else:
 with st.sidebar:
     st.header("ℹ️ Información")
     st.write("Esta aplicación te permite:")
-    st.write("- 📤 Enviar correos electrónicos")
     st.write("- 📊 Enviar correos masivos desde Excel")
     st.write("- 📬 Ver tus últimos emails")
     st.write("- 🔐 Autenticación segura con OAuth2")
