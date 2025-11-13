@@ -83,23 +83,9 @@ if st.session_state.credentials is None:
             flow = get_flow()
             auth_url, _ = flow.authorization_url(prompt='consent')
             st.markdown(f"[Haz clic aquí para autenticarte]({auth_url})")
-            st.info("Después de autenticarte, copia el código de la URL y pégalo abajo.")
         except Exception as e:
             st.error(f"Error al crear el flujo de autenticación: {str(e)}")
             st.info("Asegúrate de tener configurado el archivo secrets.toml con client_id, client_secret y redirect_uri")
-    
-    # Campo para ingresar el código de autorización
-    auth_code = st.text_input("Código de autorización:", type="password")
-    
-    if auth_code:
-        try:
-            flow = get_flow()
-            flow.fetch_token(code=auth_code)
-            st.session_state.credentials = flow.credentials
-            st.success("¡Autenticación exitosa!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Error en la autenticación: {str(e)}")
 
 else:
     # Usuario autenticado - mostrar funcionalidades
