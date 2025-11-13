@@ -5,6 +5,9 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 import json
 import pandas as pd
 import time
@@ -38,11 +41,26 @@ def get_flow():
     return flow
 
 # Función para enviar correo
-def send_email(service, to, subject, body):
+def send_email(service, to, subject, body, attachments=None):
     try:
-        message = MIMEText(body)
+        # Crear mensaje
+        message = MIMEMultipart()
         message['to'] = to
         message['subject'] = subject
+        
+        # Agregar el cuerpo del mensaje
+        message.attach(MIMEText(body, 'plain'))
+        
+        # Agregar archivos adjuntos si existen
+        if attachments:
+            for attachment in attachments:
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(attachment['content'])
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f'attachment; filename={attachment["name"]}')
+                message.attach(part)
+        
+        # Codificar el mensaje
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
         
         send_message = service.users().messages().send(
@@ -171,6 +189,19 @@ else:
                         height=200
                     )
                     
+                    # Archivos adjuntos
+                    st.subheader("📎 Archivos adjuntos (opcional)")
+                    uploaded_attachments = st.file_uploader(
+                        "Sube archivos para adjuntar a todos los correos",
+                        type=['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'xlsx', 'xls', 'txt', 'zip'],
+                        accept_multiple_files=True
+                    )
+                    
+                    if uploaded_attachments:
+                        st.write(f"📎 {len(uploaded_attachments)} archivo(s) adjunto(s):")
+                        for att in uploaded_attachments:
+                            st.write(f"  - {att.name} ({att.size / 1024:.1f} KB)")
+                    
                     # Vista previa del primer correo
                     if len(df) > 0:
                         st.subheader("👁️ Vista previa del primer correo")
@@ -197,6 +228,15 @@ else:
                         if not subject_template.strip() or not message_template.strip():
                             st.error("Por favor completa el asunto y mensaje")
                         else:
+                            # Preparar archivos adjuntos
+                            attachments = []
+                            if uploaded_attachments:
+                                for att in uploaded_attachments:
+                                    attachments.append({
+                                        'name': att.name,
+                                        'content': att.read()
+                                    })
+                            
                             progress_bar = st.progress(0)
                             status_text = st.empty()
                             
@@ -226,7 +266,7 @@ else:
                                 
                                 status_text.text(f"Enviando a {nombre} ({email})...")
                                 
-                                success, msg = send_email(service, email, asunto_personalizado, mensaje_personalizado)
+                                success, msg = send_email(service, email, asunto_personalizado, mensaje_personalizado, attachments if attachments else None)
                                 
                                 if success:
                                     enviados += 1
@@ -287,6 +327,7 @@ with st.sidebar:
     st.header("ℹ️ Información")
     st.write("Esta aplicación te permite:")
     st.write("- 📊 Enviar correos masivos desde Excel")
+    st.write("- 📎 Adjuntar archivos a los correos")
     st.write("- 📬 Ver tus últimos emails")
     st.write("- 🔐 Autenticación segura con OAuth2")
     
