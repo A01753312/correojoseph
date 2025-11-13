@@ -72,53 +72,34 @@ def list_messages(service, max_results=10):
 if 'credentials' not in st.session_state:
     st.session_state.credentials = None
 
-# Obtener código de la URL si existe
-query_params = st.query_params
-auth_code = query_params.get("code", None)
-
-# Si hay código en la URL, autenticar automáticamente
-if auth_code and st.session_state.credentials is None:
-    try:
-        flow = get_flow()
-        flow.fetch_token(code=auth_code)
-        st.session_state.credentials = flow.credentials
-        # Limpiar parámetros de la URL
-        st.query_params.clear()
-        st.success("¡Autenticación exitosa!")
-        st.rerun()
-    except Exception as e:
-        st.error(f"Error en la autenticación: {str(e)}")
-
 # Proceso de autenticación
 if st.session_state.credentials is None:
     st.header("🔐 Autenticación con Google")
     st.write("Para usar esta aplicación, necesitas autenticarte con tu cuenta de Gmail.")
     
-    # Generar URL de autenticación
-    try:
-        flow = get_flow()
-        auth_url, _ = flow.authorization_url(prompt='consent')
-        
-        # Mostrar botón que redirige directamente
-        st.markdown(f"""
-        <a href="{auth_url}" target="_self">
-            <button style="
-                background-color: #4285f4;
-                color: white;
-                padding: 10px 24px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 16px;
-            ">
-                🔐 Iniciar sesión con Google
-            </button>
-        </a>
-        """, unsafe_allow_html=True)
-        
-    except Exception as e:
-        st.error(f"Error al crear el flujo de autenticación: {str(e)}")
-        st.info("Asegúrate de tener configurado el archivo secrets.toml con client_id, client_secret y redirect_uri")
+    # Mostrar botón de login
+    if st.button("Iniciar sesión con Google"):
+        try:
+            flow = get_flow()
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            st.markdown(f"[Haz clic aquí para autenticarte]({auth_url})")
+            st.info("Después de autenticarte, copia el código de la URL y pégalo abajo.")
+        except Exception as e:
+            st.error(f"Error al crear el flujo de autenticación: {str(e)}")
+            st.info("Asegúrate de tener configurado el archivo secrets.toml con client_id, client_secret y redirect_uri")
+    
+    # Campo para ingresar el código de autorización
+    auth_code = st.text_input("Código de autorización:", type="password")
+    
+    if auth_code:
+        try:
+            flow = get_flow()
+            flow.fetch_token(code=auth_code)
+            st.session_state.credentials = flow.credentials
+            st.success("¡Autenticación exitosa!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error en la autenticación: {str(e)}")
 
 else:
     # Usuario autenticado - mostrar funcionalidades
