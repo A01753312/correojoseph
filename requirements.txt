@@ -5,6 +5,4 @@ google-auth-httplib2
 google-api-python-client
 pandas
 openpyxl
-webbrowser
-pyautogui
 pywhatkit
