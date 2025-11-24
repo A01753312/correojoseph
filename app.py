@@ -361,7 +361,7 @@ else:
                     st.info("No se encontraron mensajes")
 
     with tab3:
-        st.header("📱 Enviar WhatsApp desde Excel")
+        st.header("📱 Enviar WhatsApp (individual o masivo)")
         st.write("Sube un archivo Excel con las columnas: `Nombre` y `Celular` (sin prefijo +52)")
 
         uploaded_wa = st.file_uploader("Sube el Excel para WhatsApp", type=['xlsx', 'xls'], key='wa_excel')
@@ -378,72 +378,86 @@ else:
                     st.divider()
                     st.subheader("✉️ Plantilla de mensaje para WhatsApp")
                     st.write("Usa `{Nombre}` y `{Celular}` para personalizar")
-                    wa_template = st.text_area("Mensaje:", value="Hola {Nombre}, te contactamos al {Celular}.", height=180)
+                    wa_template = st.text_area("Mensaje:", value="Hola {Nombre}, te contactamos al {Celular}.", height=160)
+
+                    # Selección individual o masiva
+                    mode = st.radio("Enviar a:", ["Individual (elige un contacto)", "Masivo (todos)")
 
                     # Método de envío
-                    method = st.selectbox("Método de envío:", ["wa.me (enlaces, funciona en Streamlit Cloud)", "pywhatkit (local — requiere WhatsApp Web abierto)")
+                    method = st.selectbox("Método de envío:", ["wa.me (enlaces)", "pywhatkit (local)"])
 
-                    # Vista previa
-                    if len(df_wa) > 0:
-                        first = df_wa.iloc[0]
-                        preview = wa_template.format(Nombre=first['Nombre'], Celular=first['Celular'])
-                        st.subheader("👁️ Vista previa")
-                        st.write(f"**Para:** +52{first['Celular']}")
+                    if mode.startswith("Individual"):
+                        # Elegir contacto
+                        names = df_wa['Nombre'].astype(str).tolist()
+                        choice = st.selectbox("Elige un contacto:", names)
+                        selected_row = df_wa[df_wa['Nombre'].astype(str) == choice].iloc[0]
+                        numero = str(selected_row['Celular']).strip()
+                        nombre = str(selected_row['Nombre']).strip()
+                        preview = wa_template.format(Nombre=nombre, Celular=numero)
+                        st.write(f"**Para:** +52{numero}")
                         st.text_area("**Mensaje:**", value=preview, height=140, disabled=True)
 
-                    st.divider()
-
-                    if method.startswith("wa.me"):
-                        # Generar enlaces wa.me y permitir descarga
-                        links = []
-                        for _, r in df_wa.iterrows():
-                            numero = str(r['Celular']).strip()
-                            nombre = str(r['Nombre']).strip()
-                            texto = wa_template.format(Nombre=nombre, Celular=numero)
-                            encoded = urllib.parse.quote(texto)
-                            link = f"https://wa.me/52{numero}?text={encoded}"
-                            links.append({'Nombre': nombre, 'Celular': numero, 'link': link})
-
-                        links_df = pd.DataFrame(links)
-                        st.write("Se generaron enlaces wa.me. Puedes descargarlos como CSV y abrirlos manualmente o usar el navegador para enviarlos.")
-                        st.dataframe(links_df[['Nombre','Celular','link']])
-                        csv_bytes = links_df.to_csv(index=False).encode('utf-8')
-                        st.download_button("📥 Descargar CSV con enlaces", data=csv_bytes, file_name='wa_links.csv', mime='text/csv')
-                        if st.button("🔗 Abrir primer enlace en nueva pestaña"):
-                            first_link = links_df.loc[0, 'link']
-                            st.markdown(f"[Abrir enlace]({first_link})", unsafe_allow_html=True)
+                        if method.startswith("wa.me"):
+                            if st.button("🔗 Abrir chat en wa.me"):
+                                link = f"https://wa.me/52{numero}?text={urllib.parse.quote(preview)}"
+                                st.markdown(f"[Abrir wa.me]({link})", unsafe_allow_html=True)
+                        else:
+                            if not HAS_PYWHATKIT:
+                                st.warning("pywhatkit no está disponible en este entorno. Ejecuta la app localmente para usar pywhatkit.")
+                            if st.button("📤 Enviar por pywhatkit (local)"):
+                                if not HAS_PYWHATKIT:
+                                    st.error("pywhatkit no disponible — instala pywhatkit y ejecuta localmente")
+                                else:
+                                    try:
+                                        pwk.sendwhatmsg_instantly(f"+52{numero}", preview, wait_time=15, tab_close=True, close_time=3)
+                                        st.success("Mensaje enviado (se abrió WhatsApp Web)")
+                                    except Exception as e:
+                                        st.error(f"Error enviando por pywhatkit: {e}")
 
                     else:
-                        # Método pywhatkit (local)
-                        if not HAS_PYWHATKIT:
-                            st.warning("pywhatkit no está instalado en este entorno. Esta opción solo funciona si ejecutas la app localmente y tienes pywhatkit instalado.")
-                        st.write("Este método abrirá WhatsApp Web en tu navegador local; asegúrate de tener sesión iniciada en WhatsApp Web.")
-                        intervalo = st.number_input("Segundos entre mensajes:", min_value=5, max_value=300, value=15)
-                        if st.button("📤 Enviar mensajes por pywhatkit (local)"):
+                        # Masivo — comportamiento previo
+                        st.info("Generar enlaces wa.me para todos o usar pywhatkit (local) para envíos automáticos en tu máquina")
+                        if method.startswith("wa.me"):
+                            links = []
+                            for _, r in df_wa.iterrows():
+                                numero = str(r['Celular']).strip()
+                                nombre = str(r['Nombre']).strip()
+                                texto = wa_template.format(Nombre=nombre, Celular=numero)
+                                encoded = urllib.parse.quote(texto)
+                                link = f"https://wa.me/52{numero}?text={encoded}"
+                                links.append({'Nombre': nombre, 'Celular': numero, 'link': link})
+                            links_df = pd.DataFrame(links)
+                            st.dataframe(links_df[['Nombre','Celular','link']])
+                            csv_bytes = links_df.to_csv(index=False).encode('utf-8')
+                            st.download_button("📥 Descargar CSV con enlaces", data=csv_bytes, file_name='wa_links.csv', mime='text/csv')
+                        else:
+                            intervalo = st.number_input("Segundos entre mensajes:", min_value=5, max_value=300, value=15)
                             if not HAS_PYWHATKIT:
-                                st.error("pywhatkit no disponible — ejecuta la app localmente e instala pywhatkit")
-                            else:
-                                progress = st.progress(0)
-                                status = st.empty()
-                                enviados = 0
-                                errores = 0
-                                for idx, row in df_wa.iterrows():
-                                    nombre = str(row['Nombre']).strip()
-                                    celular = str(row['Celular']).strip()
-                                    texto = wa_template.format(Nombre=nombre, Celular=celular)
-                                    status.text(f"Enviando a {nombre} (+52{celular})...")
-                                    try:
-                                        # pywhatkit espera el número con prefijo, y abre WhatsApp Web
-                                        pwk.sendwhatmsg_instantly(f"+52{celular}", texto, wait_time=15, tab_close=True, close_time=3)
-                                        enviados += 1
-                                    except Exception as e:
-                                        errores += 1
-                                        st.warning(f"Error enviando a {celular}: {e}")
-                                    progress.progress((idx + 1) / len(df_wa))
-                                    time.sleep(intervalo)
-                                status.empty()
-                                progress.empty()
-                                st.success(f"Proceso finalizado: {enviados} enviados, {errores} errores")
+                                st.warning("pywhatkit no está instalado aquí. Ejecuta localmente para usar esta opción.")
+                            if st.button("📤 Enviar masivo por pywhatkit (local)"):
+                                if not HAS_PYWHATKIT:
+                                    st.error("pywhatkit no disponible — instala pywhatkit y ejecuta localmente")
+                                else:
+                                    progress = st.progress(0)
+                                    status = st.empty()
+                                    enviados = 0
+                                    errores = 0
+                                    for idx, row in df_wa.iterrows():
+                                        nombre = str(row['Nombre']).strip()
+                                        celular = str(row['Celular']).strip()
+                                        texto = wa_template.format(Nombre=nombre, Celular=celular)
+                                        status.text(f"Enviando a {nombre} (+52{celular})...")
+                                        try:
+                                            pwk.sendwhatmsg_instantly(f"+52{celular}", texto, wait_time=15, tab_close=True, close_time=3)
+                                            enviados += 1
+                                        except Exception as e:
+                                            errores += 1
+                                            st.warning(f"Error enviando a {celular}: {e}")
+                                        progress.progress((idx + 1) / len(df_wa))
+                                        time.sleep(intervalo)
+                                    status.empty()
+                                    progress.empty()
+                                    st.success(f"Proceso finalizado: {enviados} enviados, {errores} errores")
             except Exception as e:
                 st.error(f"Error procesando el Excel para WhatsApp: {e}")
 
