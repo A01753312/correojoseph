@@ -381,7 +381,7 @@ else:
                     wa_template = st.text_area("Mensaje:", value="Hola {Nombre}, te contactamos al {Celular}.", height=160)
 
                     # Selección individual o masiva
-                    mode = st.radio("Enviar a:", ["Individual (elige un contacto)", "Masivo (todos)")
+                    mode = st.radio("Enviar a:", ["Individual (elige un contacto)", "Masivo (todos)"])
 
                     # Método de envío
                     method = st.selectbox("Método de envío:", ["wa.me (enlaces)", "pywhatkit (local)"])
