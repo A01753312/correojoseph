@@ -398,9 +398,25 @@ else:
                         st.text_area("**Mensaje:**", value=preview, height=140, disabled=True)
 
                         if method.startswith("wa.me"):
-                            if st.button("🔗 Abrir chat en wa.me"):
-                                link = f"https://wa.me/52{numero}?text={urllib.parse.quote(preview)}"
-                                st.markdown(f"[Abrir wa.me]({link})", unsafe_allow_html=True)
+                            link = f"https://wa.me/52{numero}?text={urllib.parse.quote(preview)}"
+                            st.markdown(
+                                f"""
+                                <a href="{link}" target="_blank">
+                                    <button style="
+                                        background-color:#25D366;
+                                        color:white;
+                                        padding:10px 18px;
+                                        border:none;
+                                        border-radius:8px;
+                                        font-size:16px;
+                                        cursor:pointer;
+                                    ">
+                                        📲 Enviar WhatsApp
+                                    </button>
+                                </a>
+                                """,
+                                unsafe_allow_html=True
+                            )
                         else:
                             if not HAS_PYWHATKIT:
                                 st.warning("pywhatkit no está disponible en este entorno. Ejecuta la app localmente para usar pywhatkit.")
@@ -418,18 +434,36 @@ else:
                         # Masivo — comportamiento previo
                         st.info("Generar enlaces wa.me para todos o usar pywhatkit (local) para envíos automáticos en tu máquina")
                         if method.startswith("wa.me"):
-                            links = []
+                            st.subheader("Enlaces de envío (clic para abrir WhatsApp)")
+
                             for _, r in df_wa.iterrows():
                                 numero = str(r['Celular']).strip()
                                 nombre = str(r['Nombre']).strip()
                                 texto = wa_template.format(Nombre=nombre, Celular=numero)
                                 encoded = urllib.parse.quote(texto)
                                 link = f"https://wa.me/52{numero}?text={encoded}"
-                                links.append({'Nombre': nombre, 'Celular': numero, 'link': link})
-                            links_df = pd.DataFrame(links)
-                            st.dataframe(links_df[['Nombre','Celular','link']])
-                            csv_bytes = links_df.to_csv(index=False).encode('utf-8')
-                            st.download_button("📥 Descargar CSV con enlaces", data=csv_bytes, file_name='wa_links.csv', mime='text/csv')
+
+                                st.markdown(
+                                    f"""
+                                    <div style="margin-bottom:15px; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                                        <b>{nombre}</b> (+52{numero})<br><br>
+                                        <a href="{link}" target="_blank">
+                                            <button style="
+                                                background-color:#25D366;
+                                                color:white;
+                                                padding:8px 14px;
+                                                border:none;
+                                                border-radius:6px;
+                                                font-size:15px;
+                                                cursor:pointer;
+                                            ">
+                                                📲 Enviar WhatsApp
+                                            </button>
+                                        </a>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
                         else:
                             intervalo = st.number_input("Segundos entre mensajes:", min_value=5, max_value=300, value=15)
                             if not HAS_PYWHATKIT:
