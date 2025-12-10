@@ -277,7 +277,6 @@ else:
                     st.write("Columnas detectadas:", list(df.columns))
                     st.info("Nota: aceptamos variaciones como 'correo'→'email' o 'telefono'→'Celular'. Si tu archivo tiene encabezados con espacios o mayúsculas, deberían funcionar automáticamente.")
                 else:
-                else:
                     st.success(f"✅ Archivo cargado correctamente: {len(df)} contactos encontrados")
                     
                     # Mostrar vista previa
