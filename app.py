@@ -180,8 +180,23 @@ else:
         
         if uploaded_file is not None:
             try:
-                # Leer el archivo Excel
-                df = pd.read_excel(uploaded_file)
+                # Leer el archivo Excel usando el engine apropiado
+                df = None
+                try:
+                    filename = getattr(uploaded_file, 'name', '') or ''
+                    if filename.lower().endswith('.xls'):
+                        # .xls necesita xlrd
+                        df = pd.read_excel(uploaded_file, engine='xlrd')
+                    else:
+                        # .xlsx usa openpyxl
+                        df = pd.read_excel(uploaded_file, engine='openpyxl')
+                except Exception as e:
+                    err = str(e)
+                    if 'xlrd' in err or 'Install xlrd' in err or 'Missing optional dependency' in err:
+                        st.error("Falta la dependencia opcional 'xlrd'. Instala `xlrd>=2.0.1` y vuelve a desplegar la app. En Streamlit Cloud añádelo a `requirements.txt`.")
+                    else:
+                        st.error(f"Error leyendo el Excel: {err}")
+                    df = None
                 
                 # Verificar que tenga las columnas necesarias
                 required_columns = ['Nombre', 'Celular', 'email']
@@ -367,7 +382,21 @@ else:
         uploaded_wa = st.file_uploader("Sube el Excel para WhatsApp", type=['xlsx', 'xls'], key='wa_excel')
         if uploaded_wa is not None:
             try:
-                df_wa = pd.read_excel(uploaded_wa, dtype=str)
+                # Leer el Excel para WhatsApp usando engine apropiado
+                df_wa = None
+                try:
+                    wa_filename = getattr(uploaded_wa, 'name', '') or ''
+                    if wa_filename.lower().endswith('.xls'):
+                        df_wa = pd.read_excel(uploaded_wa, dtype=str, engine='xlrd')
+                    else:
+                        df_wa = pd.read_excel(uploaded_wa, dtype=str, engine='openpyxl')
+                except Exception as e:
+                    err = str(e)
+                    if 'xlrd' in err or 'Install xlrd' in err or 'Missing optional dependency' in err:
+                        st.error("Falta la dependencia opcional 'xlrd'. Instala `xlrd>=2.0.1` y vuelve a desplegar la app. En Streamlit Cloud añádelo a `requirements.txt`.")
+                    else:
+                        st.error(f"Error procesando el Excel para WhatsApp: {err}")
+                    df_wa = None
                 required_wa = ['Nombre', 'Celular']
                 if not all(col in df_wa.columns for col in required_wa):
                     st.error(f"El archivo debe contener las columnas: {', '.join(required_wa)}")
