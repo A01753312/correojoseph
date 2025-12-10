@@ -112,6 +112,29 @@ def list_messages(service, max_results=10):
         st.error(f"Error al listar mensajes: {str(e)}")
         return []
 
+
+# Helper: formato seguro para plantillas que puede manejar claves faltantes
+def safe_format(template, row):
+    # Proveer valores por defecto (cadena vacía) si alguna clave falta
+    vals = {
+        'Nombre': '',
+        'Celular': '',
+        'email': ''
+    }
+    try:
+        for k in vals.keys():
+            if k in row and pd.notna(row[k]):
+                vals[k] = str(row[k])
+    except Exception:
+        # row puede ser un dict o Series; si falla, seguir con defaults
+        pass
+
+    try:
+        return template.format(**vals)
+    except Exception as e:
+        # Re-lanzar para que el caller pueda mostrar un error amigable
+        raise e
+
 # Verificar si hay credenciales guardadas
 if 'credentials' not in st.session_state:
     st.session_state.credentials = None
@@ -198,8 +221,8 @@ else:
                         st.error(f"Error leyendo el Excel: {err}")
                     df = None
                 
-                # Verificar que tenga las columnas necesarias
-                required_columns = ['Nombre', 'Celular', 'email']
+                # Verificar que tenga las columnas necesarias (solo Nombre y email son obligatorios)
+                required_columns = ['Nombre', 'email']
                 if not all(col in df.columns for col in required_columns):
                     st.error(f"El archivo debe contener las columnas: {', '.join(required_columns)}")
                 else:
@@ -247,16 +270,14 @@ else:
                     if len(df) > 0:
                         st.subheader("👁️ Vista previa del primer correo")
                         first_row = df.iloc[0]
-                        preview_subject = subject_template.format(
-                            Nombre=first_row['Nombre'],
-                            Celular=first_row['Celular'],
-                            email=first_row['email']
-                        )
-                        preview_message = message_template.format(
-                            Nombre=first_row['Nombre'],
-                            Celular=first_row['Celular'],
-                            email=first_row['email']
-                        )
+                        # Usar formato seguro: si falta Celular, se deja en blanco
+                        try:
+                            preview_subject = safe_format(subject_template, first_row)
+                            preview_message = safe_format(message_template, first_row)
+                        except Exception as e:
+                            st.error(f"Error en la plantilla: {e}. Usa solo {{Nombre}}, {{Celular}}, o {{email}}")
+                            preview_subject = ''
+                            preview_message = ''
                         
                         st.write(f"**Para:** {first_row['email']}")
                         st.write(f"**Asunto:** {preview_subject}")
@@ -296,17 +317,11 @@ else:
                                 
                                 # Personalizar asunto y mensaje
                                 try:
-                                    asunto_personalizado = subject_template.format(
-                                        Nombre=nombre,
-                                        Celular=celular,
-                                        email=email
-                                    )
-                                    mensaje_personalizado = message_template.format(
-                                        Nombre=nombre,
-                                        Celular=celular,
-                                        email=email
-                                    )
-                                except KeyError as e:
+                                    # Formateo seguro para evitar KeyError si falta Celular
+                                    row_for_format = {'Nombre': nombre, 'Celular': celular if 'Celular' in df.columns else '', 'email': email}
+                                    asunto_personalizado = safe_format(subject_template, row_for_format)
+                                    mensaje_personalizado = safe_format(message_template, row_for_format)
+                                except Exception as e:
                                     st.error(f"Error en la plantilla: {e}. Usa solo {{Nombre}}, {{Celular}}, o {{email}}")
                                     break
                                 
