@@ -13,6 +13,7 @@ import pandas as pd
 import time
 import mimetypes
 import urllib.parse
+import unicodedata
 
 # Intentar importar pywhatkit (solo funciona si la app se ejecuta en una máquina local)
 try:
@@ -135,6 +136,51 @@ def safe_format(template, row):
         # Re-lanzar para que el caller pueda mostrar un error amigable
         raise e
 
+
+# Normalizar nombres de columna: quitar acentos, espacios y pasar a minúsculas
+def normalize_colname(name):
+    if not isinstance(name, str):
+        name = str(name)
+    # quitar espacios alrededor
+    s = name.strip().lower()
+    # quitar acentos
+    s = unicodedata.normalize('NFKD', s)
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    # reemplazar espacios y guiones bajos por nada
+    s = s.replace(' ', '').replace('_', '').replace('-', '')
+    return s
+
+
+def canonicalize_columns(df):
+    # Mapa de sinónimos normalizados a nombres canónicos
+    canon = {
+        'nombre': 'Nombre',
+        'nombrecompleto': 'Nombre',
+        'n': 'Nombre',
+        'email': 'email',
+        'correo': 'email',
+        'correoelectronico': 'email',
+        'e-mail': 'email',
+        'mail': 'email',
+        'celular': 'Celular',
+        'telefono': 'Celular',
+        'telefonocelular': 'Celular',
+        'movil': 'Celular'
+    }
+
+    rename_map = {}
+    used_targets = set()
+    for col in list(df.columns):
+        norm = normalize_colname(col)
+        target = canon.get(norm)
+        if target and target not in used_targets:
+            rename_map[col] = target
+            used_targets.add(target)
+
+    if rename_map:
+        df = df.rename(columns=rename_map)
+    return df
+
 # Verificar si hay credenciales guardadas
 if 'credentials' not in st.session_state:
     st.session_state.credentials = None
@@ -223,8 +269,14 @@ else:
                 
                 # Verificar que tenga las columnas necesarias (solo Nombre y email son obligatorios)
                 required_columns = ['Nombre', 'email']
+                # Canonicalizar columnas (acepta 'NOMBRE', 'correo', 'teléfono', etc.)
+                df = canonicalize_columns(df)
+
                 if not all(col in df.columns for col in required_columns):
                     st.error(f"El archivo debe contener las columnas: {', '.join(required_columns)}")
+                    st.write("Columnas detectadas:", list(df.columns))
+                    st.info("Nota: aceptamos variaciones como 'correo'→'email' o 'telefono'→'Celular'. Si tu archivo tiene encabezados con espacios o mayúsculas, deberían funcionar automáticamente.")
+                else:
                 else:
                     st.success(f"✅ Archivo cargado correctamente: {len(df)} contactos encontrados")
                     
@@ -413,8 +465,14 @@ else:
                         st.error(f"Error procesando el Excel para WhatsApp: {err}")
                     df_wa = None
                 required_wa = ['Nombre', 'Celular']
+                # Canonicalizar columnas para WhatsApp también
+                df_wa = canonicalize_columns(df_wa)
+
                 if not all(col in df_wa.columns for col in required_wa):
                     st.error(f"El archivo debe contener las columnas: {', '.join(required_wa)}")
+                    st.write("Columnas detectadas:", list(df_wa.columns))
+                    st.info("Nota: aceptamos variaciones como 'telefono'→'Celular'. Si tus encabezados usan mayúsculas o espacios, deberían ser reconocidos automáticamente.")
+                else:
                 else:
                     st.success(f"✅ Archivo cargado correctamente: {len(df_wa)} contactos encontrados")
                     st.dataframe(df_wa)
