@@ -472,7 +472,6 @@ else:
                     st.write("Columnas detectadas:", list(df_wa.columns))
                     st.info("Nota: aceptamos variaciones como 'telefono'→'Celular'. Si tus encabezados usan mayúsculas o espacios, deberían ser reconocidos automáticamente.")
                 else:
-                else:
                     st.success(f"✅ Archivo cargado correctamente: {len(df_wa)} contactos encontrados")
                     st.dataframe(df_wa)
 
