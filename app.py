@@ -152,27 +152,19 @@ def normalize_colname(name):
 
 
 def canonicalize_columns(df):
-    # Mapa de sinónimos normalizados a nombres canónicos
-    canon = {
-        'nombre': 'Nombre',
-        'nombrecompleto': 'Nombre',
-        'n': 'Nombre',
-        'email': 'email',
-        'correo': 'email',
-        'correoelectronico': 'email',
-        'e-mail': 'email',
-        'mail': 'email',
-        'celular': 'Celular',
-        'telefono': 'Celular',
-        'telefonocelular': 'Celular',
-        'movil': 'Celular'
-    }
-
+    # Map columns by substring matching to handle variants like 'número_de_teléfono'
     rename_map = {}
     used_targets = set()
     for col in list(df.columns):
         norm = normalize_colname(col)
-        target = canon.get(norm)
+        target = None
+        if 'nombre' in norm:
+            target = 'Nombre'
+        elif any(k in norm for k in ('correo', 'correoelectronico', 'email', 'mail')):
+            target = 'email'
+        elif any(k in norm for k in ('telefono', 'numerodetelefono', 'numero', 'movil', 'celular')):
+            target = 'Celular'
+
         if target and target not in used_targets:
             rename_map[col] = target
             used_targets.add(target)
