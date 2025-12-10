@@ -264,10 +264,28 @@ else:
                 # Canonicalizar columnas (acepta 'NOMBRE', 'correo', 'teléfono', etc.)
                 df = canonicalize_columns(df)
 
+                # Si faltan columnas obligatorias, ofrecer mapeo interactivo
                 if not all(col in df.columns for col in required_columns):
                     st.error(f"El archivo debe contener las columnas: {', '.join(required_columns)}")
                     st.write("Columnas detectadas:", list(df.columns))
                     st.info("Nota: aceptamos variaciones como 'correo'→'email' o 'telefono'→'Celular'. Si tu archivo tiene encabezados con espacios o mayúsculas, deberían funcionar automáticamente.")
+
+                    st.subheader("Mapear columnas detectadas")
+                    detected = list(df.columns)
+                    # Selectboxes para mapear columnas (si existen)
+                    sel_name = st.selectbox("Selecciona la columna que contiene el Nombre (opcional):", options=["-- Ninguno --"] + detected, key='map_name')
+                    sel_email = st.selectbox("Selecciona la columna que contiene el Email (obligatorio si existe):", options=["-- Ninguno --"] + detected, key='map_email')
+
+                    if sel_email != "-- Ninguno --":
+                        df = df.rename(columns={sel_email: 'email'})
+                    if sel_name != "-- Ninguno --":
+                        df = df.rename(columns={sel_name: 'Nombre'})
+
+                    # Re-evaluar
+                    if not all(col in df.columns for col in required_columns):
+                        st.error("Aún faltan columnas requeridas tras el mapeo. Por favor selecciona la columna correcta para 'email'.")
+                    else:
+                        st.success(f"✅ Archivo cargado correctamente: {len(df)} contactos encontrados")
                 else:
                     st.success(f"✅ Archivo cargado correctamente: {len(df)} contactos encontrados")
                     
@@ -459,10 +477,26 @@ else:
                 # Canonicalizar columnas para WhatsApp también
                 df_wa = canonicalize_columns(df_wa)
 
+                # Si faltan columnas obligatorias, ofrecer mapeo interactivo
                 if not all(col in df_wa.columns for col in required_wa):
                     st.error(f"El archivo debe contener las columnas: {', '.join(required_wa)}")
                     st.write("Columnas detectadas:", list(df_wa.columns))
                     st.info("Nota: aceptamos variaciones como 'telefono'→'Celular'. Si tus encabezados usan mayúsculas o espacios, deberían ser reconocidos automáticamente.")
+
+                    st.subheader("Mapear columnas detectadas para WhatsApp")
+                    detected_wa = list(df_wa.columns)
+                    sel_name_wa = st.selectbox("Selecciona la columna que contiene el Nombre:", options=["-- Ninguno --"] + detected_wa, key='map_name_wa')
+                    sel_cell_wa = st.selectbox("Selecciona la columna que contiene el Número de teléfono:", options=["-- Ninguno --"] + detected_wa, key='map_cell_wa')
+
+                    if sel_name_wa != "-- Ninguno --":
+                        df_wa = df_wa.rename(columns={sel_name_wa: 'Nombre'})
+                    if sel_cell_wa != "-- Ninguno --":
+                        df_wa = df_wa.rename(columns={sel_cell_wa: 'Celular'})
+
+                    if not all(col in df_wa.columns for col in required_wa):
+                        st.error("Aún faltan columnas requeridas tras el mapeo. Por favor selecciona las columnas correctas para Nombre y Celular.")
+                    else:
+                        st.success(f"✅ Archivo cargado correctamente: {len(df_wa)} contactos encontrados")
                 else:
                     st.success(f"✅ Archivo cargado correctamente: {len(df_wa)} contactos encontrados")
                     st.dataframe(df_wa)
